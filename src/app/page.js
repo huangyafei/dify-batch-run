@@ -40,12 +40,9 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-md p-6 w-full max-w-md">
-        <h1 className="text-2xl font-bold mb-4">CSV API Processor</h1>
+        <h1 className="text-2xl font-bold mb-4 text-gray-800">批量运行工作流</h1>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="csvFile" className="block text-sm font-medium text-gray-700 mb-1">
-              Upload CSV File
-            </label>
             <input
               type="file"
               id="csvFile"
@@ -59,16 +56,16 @@ export default function Home() {
             disabled={!file || processing}
             className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
           >
-            {processing ? 'Processing...' : 'Process CSV'}
+            {processing ? '处理中...' : '开始处理'}
           </button>
         </form>
         {error && <p className="mt-4 text-red-600">Error: {error}</p>}
-        {processing && <p className="mt-4 text-gray-600">Processing... This may take a while.</p>}
+        {processing && <p className="mt-4 text-gray-600">处理中，请稍候...</p>}
         {downloadUrl && (
           <p className="mt-4">
-            Processing complete!{' '}
+            <span className="text-gray-600">处理完成！{' '}</span>
             <a href={downloadUrl} download className="text-blue-600 hover:text-blue-800">
-              Download processed CSV
+              下载处理后的CSV
             </a>
           </p>
         )}
