@@ -6,16 +6,16 @@ import path from 'path';
 import { NextResponse } from 'next/server';
 
 export async function POST(req) {
-  const { fileContent } = await req.json();
+  const { fileContent, mapping } = await req.json();
   
-  if (!fileContent) {
-    return NextResponse.json({ error: 'No file content provided' }, { status: 400 });
+  if (!fileContent || !mapping) {
+    return NextResponse.json({ error: 'No file content or mapping provided' }, { status: 400 });
   }
 
   try {
     const records = await parseCSV(fileContent);
     console.log('CSV parsing completed. Processing records...');
-    const processedRecords = await processRecords(records);
+    const processedRecords = await processRecords(records, mapping);
     console.log('All records processed. Generating output file...');
     const output = stringify(processedRecords, { header: true });
     const fileName = `processed_${Date.now()}.csv`;
@@ -37,37 +37,21 @@ export async function POST(req) {
 
 function parseCSV(fileContent) {
   return new Promise((resolve, reject) => {
-    const records = [];
-    const parser = parse({
+    parse(fileContent, {
       columns: true,
       skip_empty_lines: true
+    }, (err, records) => {
+      if (err) reject(err);
+      else resolve(records);
     });
-
-    parser.on('readable', function() {
-      let record;
-      while (record = this.read()) {
-        records.push(record);
-      }
-    });
-
-    parser.on('error', function(err) {
-      reject(err);
-    });
-
-    parser.on('end', function() {
-      resolve(records);
-    });
-
-    parser.write(fileContent);
-    parser.end();
   });
 }
 
-async function processRecords(records) {
+async function processRecords(records, mapping) {
   const processedRecords = [];
   for (const record of records) {
     try {
-      const processedRecord = await processRecord(record);
+      const processedRecord = await processRecord(record, mapping);
       processedRecords.push(processedRecord);
     } catch (error) {
       console.error('Error processing record:', error);
@@ -77,35 +61,39 @@ async function processRecords(records) {
   return processedRecords;
 }
 
-async function processRecord(record) {
+async function processRecord(record, mapping) {
   console.log('Processing record:', record);
-  const apiResponse = await callAPI(record);
+  const apiInputs = {};
+  const outputMapping = {};
+
+  mapping.forEach(map => {
+    if (map.type === 'input') {
+      apiInputs[map.apiParam] = record[map.csvColumn];
+    } else {
+      outputMapping[map.apiParam] = map.csvColumn;
+    }
+  });
+
+  const apiResponse = await callAPI(apiInputs);
   console.log('API response:', apiResponse);
 
-  const { text, biaozhundaan, cihuibiao } = apiResponse.outputs;
+  const processedRecord = {...record};
+  Object.entries(outputMapping).forEach(([apiParam, csvColumn]) => {
+    processedRecord[csvColumn] = apiResponse.outputs[apiParam] || '';
+  });
 
-  return {
-    ...record,
-    text: text || '',
-    biaozhundaan: biaozhundaan || '',
-    cihuibiao: cihuibiao || ''
-  };
+  return processedRecord;
 }
 
-async function callAPI(record) {
+async function callAPI(inputs) {
   try {
     const response = await axios.post('http://localhost/v1/workflows/run', {
-      inputs: {
-        article: record.article,
-        article_title: record.article_title,
-        article_grade: record.article_grade,
-        "sys.files": []
-      },
+      inputs: inputs,
       response_mode: "blocking",
       user: "api"
     }, {
       headers: {
-        'Authorization': 'Bearer app-J3MlqDdd2xFdGu82NR415kD2',
+        'Authorization': 'Bearer app-WBeYjhfX3yc4AwBJhPbI4Dcq',
         'Content-Type': 'application/json'
       }
     });
@@ -120,11 +108,3 @@ async function callAPI(record) {
     throw error;
   }
 }
-
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '50mb',
-    },
-  },
-};
