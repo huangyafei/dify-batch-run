@@ -9,6 +9,8 @@ export default function Home() {
   const [processing, setProcessing] = useState(false);
   const [downloadUrl, setDownloadUrl] = useState(null);
   const [error, setError] = useState(null);
+  const [apiUrl, setApiUrl] = useState('https://api.dify.ai/v1/workflows/run');
+  const [apiKey, setApiKey] = useState('');
 
   const handleFileChange = (event) => {
     setFile(event.target.files[0]);
@@ -31,7 +33,7 @@ export default function Home() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    if (!file) return;
+    if (!file || !apiUrl || !apiKey) return;
 
     setProcessing(true);
     setError(null);
@@ -41,7 +43,9 @@ export default function Home() {
       try {
         const response = await axios.post('/api/process-csv', {
           fileContent: e.target.result,
-          mapping: mapping
+          mapping: mapping,
+          apiUrl: apiUrl,
+          apiKey: apiKey
         });
         if (response.data.error) {
           throw new Error(response.data.error);
@@ -63,6 +67,34 @@ export default function Home() {
         <div className="bg-[#2c2c2e] rounded-lg shadow-lg p-6 mb-8">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
+              <label htmlFor="apiUrl" className="block text-sm font-medium mb-2">
+                API URL
+              </label>
+              <input
+                type="text"
+                id="apiUrl"
+                value={apiUrl}
+                onChange={(e) => setApiUrl(e.target.value)}
+                className="w-full px-3 py-2 bg-[#3a3a3c] rounded-md text-sm"
+                required
+              />
+            </div>
+
+            <div>
+              <label htmlFor="apiKey" className="block text-sm font-medium mb-2">
+                API Key
+              </label>
+              <input
+                type="text"
+                id="apiKey"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                className="w-full px-3 py-2 bg-[#3a3a3c] rounded-md text-sm"
+                required
+              />
+            </div>
+
+            <div>
               <label htmlFor="csvFile" className="block text-sm font-medium mb-2">
                 上传 CSV 文件
               </label>
@@ -72,6 +104,7 @@ export default function Home() {
                 onChange={handleFileChange}
                 accept=".csv"
                 className="w-full px-3 py-2 bg-[#3a3a3c] rounded-md text-sm"
+                required
               />
             </div>
 
@@ -126,7 +159,7 @@ export default function Home() {
             <div>
               <button
                 type="submit"
-                disabled={!file || processing}
+                disabled={!file || !apiUrl || !apiKey || processing}
                 className="w-full py-2 px-4 bg-blue-600 rounded-md text-sm font-medium disabled:opacity-50"
               >
                 {processing ? '处理中...' : '开始处理'}
