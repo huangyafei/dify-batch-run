@@ -6,16 +6,16 @@ import path from 'path';
 import { NextResponse } from 'next/server';
 
 export async function POST(req) {
-  const { fileContent, mapping } = await req.json();
+  const { fileContent, mapping, apiUrl, apiKey } = await req.json();
   
-  if (!fileContent || !mapping) {
-    return NextResponse.json({ error: 'No file content or mapping provided' }, { status: 400 });
+  if (!fileContent || !mapping || !apiUrl || !apiKey) {
+    return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
   }
 
   try {
     const records = await parseCSV(fileContent);
     console.log('CSV parsing completed. Processing records...');
-    const processedRecords = await processRecords(records, mapping);
+    const processedRecords = await processRecords(records, mapping, apiUrl, apiKey);
     console.log('All records processed. Generating output file...');
     const output = stringify(processedRecords, { header: true });
     const fileName = `processed_${Date.now()}.csv`;
@@ -47,11 +47,11 @@ function parseCSV(fileContent) {
   });
 }
 
-async function processRecords(records, mapping) {
+async function processRecords(records, mapping, apiUrl, apiKey) {
   const processedRecords = [];
   for (const record of records) {
     try {
-      const processedRecord = await processRecord(record, mapping);
+      const processedRecord = await processRecord(record, mapping, apiUrl, apiKey);
       processedRecords.push(processedRecord);
     } catch (error) {
       console.error('Error processing record:', error);
@@ -61,7 +61,7 @@ async function processRecords(records, mapping) {
   return processedRecords;
 }
 
-async function processRecord(record, mapping) {
+async function processRecord(record, mapping, apiUrl, apiKey) {
   console.log('Processing record:', record);
   const apiInputs = {};
   const outputMapping = {};
@@ -74,7 +74,7 @@ async function processRecord(record, mapping) {
     }
   });
 
-  const apiResponse = await callAPI(apiInputs);
+  const apiResponse = await callAPI(apiInputs, apiUrl, apiKey);
   console.log('API response:', apiResponse);
 
   const processedRecord = {...record};
@@ -85,15 +85,15 @@ async function processRecord(record, mapping) {
   return processedRecord;
 }
 
-async function callAPI(inputs) {
+async function callAPI(inputs, apiUrl, apiKey) {
   try {
-    const response = await axios.post('http://localhost/v1/workflows/run', {
+    const response = await axios.post(apiUrl, {
       inputs: inputs,
       response_mode: "blocking",
       user: "api"
     }, {
       headers: {
-        'Authorization': 'Bearer app-WBeYjhfX3yc4AwBJhPbI4Dcq',
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json'
       }
     });
