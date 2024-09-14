@@ -9,7 +9,7 @@ export default function Home() {
   const [processing, setProcessing] = useState(false);
   const [downloadUrl, setDownloadUrl] = useState(null);
   const [error, setError] = useState(null);
-  const [apiUrl, setApiUrl] = useState('https://api.dify.ai/v1/workflows/run');
+  const [apiUrl, setApiUrl] = useState('http://bigdata-dify.ienglish.cn/v1/workflows/run');
   const [apiKey, setApiKey] = useState('');
 
   const handleFileChange = (event) => {
