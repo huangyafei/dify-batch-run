@@ -1,5 +1,5 @@
 {
-  "name": "csv-api-processor-next",
+  "name": "dify-batch-run",
   "version": "0.1.0",
   "private": true,
   "scripts": {
