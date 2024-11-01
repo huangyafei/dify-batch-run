@@ -49,15 +49,24 @@ function parseCSV(fileContent) {
 
 async function processRecords(records, mapping, apiUrl, apiKey) {
   const processedRecords = [];
-  for (const record of records) {
-    try {
-      const processedRecord = await processRecord(record, mapping, apiUrl, apiKey);
-      processedRecords.push(processedRecord);
-    } catch (error) {
-      console.error('Error processing record:', error);
-      processedRecords.push({...record, error: error.message});
-    }
+  const concurrencyLimit = 5; // 设置并发限制，可以根据需要调整
+
+  for (let i = 0; i < records.length; i += concurrencyLimit) {
+    const batch = records.slice(i, i + concurrencyLimit);
+    const promises = batch.map(record => 
+      processRecord(record, mapping, apiUrl, apiKey)
+        .catch(error => {
+          console.error('处理记录时出错:', error);
+          return {...record, error: error.message};
+        })
+    );
+
+    const results = await Promise.all(promises);
+    processedRecords.push(...results);
+    
+    console.log(`已处理 ${processedRecords.length} 条记录，共 ${records.length} 条`);
   }
+
   return processedRecords;
 }
 
