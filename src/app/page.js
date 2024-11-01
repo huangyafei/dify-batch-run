@@ -11,6 +11,7 @@ export default function Home() {
   const [error, setError] = useState(null);
   const [apiUrl, setApiUrl] = useState('https://api.dify.ai/v1/workflows/run');
   const [apiKey, setApiKey] = useState('');
+  const [concurrencyLimit, setConcurrencyLimit] = useState(5);
 
   const handleFileChange = (event) => {
     setFile(event.target.files[0]);
@@ -45,7 +46,8 @@ export default function Home() {
           fileContent: e.target.result,
           mapping: mapping,
           apiUrl: apiUrl,
-          apiKey: apiKey
+          apiKey: apiKey,
+          concurrencyLimit: parseInt(concurrencyLimit)
         });
         if (response.data.error) {
           throw new Error(response.data.error);
@@ -92,6 +94,25 @@ export default function Home() {
                 className="w-full px-3 py-2 bg-[#3a3a3c] rounded-md text-sm"
                 required
               />
+            </div>
+
+            <div>
+              <label htmlFor="concurrencyLimit" className="block text-sm font-medium mb-2">
+                并发限制
+              </label>
+              <input
+                type="number"
+                id="concurrencyLimit"
+                min="1"
+                max="50"
+                value={concurrencyLimit}
+                onChange={(e) => setConcurrencyLimit(e.target.value)}
+                className="w-full px-3 py-2 bg-[#3a3a3c] rounded-md text-sm"
+                required
+              />
+              <p className="mt-1 text-xs text-gray-400">
+                请输入 1-50 之间的数字，数字越大并发量越高，但同时可能会超过 API 请求频率限制。
+              </p>
             </div>
 
             <div>
