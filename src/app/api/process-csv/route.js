@@ -6,7 +6,7 @@ import path from 'path';
 import { NextResponse } from 'next/server';
 
 export async function POST(req) {
-  const { fileContent, mapping, apiUrl, apiKey } = await req.json();
+  const { fileContent, mapping, apiUrl, apiKey, concurrencyLimit } = await req.json();
   
   if (!fileContent || !mapping || !apiUrl || !apiKey) {
     return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
@@ -15,7 +15,7 @@ export async function POST(req) {
   try {
     const records = await parseCSV(fileContent);
     console.log('CSV parsing completed. Processing records...');
-    const processedRecords = await processRecords(records, mapping, apiUrl, apiKey);
+    const processedRecords = await processRecords(records, mapping, apiUrl, apiKey, concurrencyLimit);
     console.log('All records processed. Generating output file...');
     const output = stringify(processedRecords, { header: true });
     const fileName = `processed_${Date.now()}.csv`;
@@ -47,9 +47,8 @@ function parseCSV(fileContent) {
   });
 }
 
-async function processRecords(records, mapping, apiUrl, apiKey) {
+async function processRecords(records, mapping, apiUrl, apiKey, concurrencyLimit = 5) {
   const processedRecords = [];
-  const concurrencyLimit = 5; // 设置并发限制，可以根据需要调整
 
   for (let i = 0; i < records.length; i += concurrencyLimit) {
     const batch = records.slice(i, i + concurrencyLimit);
