@@ -7,7 +7,8 @@ export default function Home() {
   const [file, setFile] = useState(null);
   const [mapping, setMapping] = useState([{ csvColumn: '', apiParam: '', type: 'input' }]);
   const [processing, setProcessing] = useState(false);
-  const [downloadUrl, setDownloadUrl] = useState(null);
+  const [downloadBlob, setDownloadBlob] = useState(null);
+  const [downloadFileName, setDownloadFileName] = useState(null);
   const [error, setError] = useState(null);
   const [apiUrl, setApiUrl] = useState('https://api.dify.ai/v1/workflows/run');
   const [apiKey, setApiKey] = useState('');
@@ -38,7 +39,8 @@ export default function Home() {
 
     setProcessing(true);
     setError(null);
-    setDownloadUrl(null);
+    setDownloadBlob(null);
+    
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
@@ -48,11 +50,13 @@ export default function Home() {
           apiUrl: apiUrl,
           apiKey: apiKey,
           concurrencyLimit: parseInt(concurrencyLimit)
+        }, {
+          responseType: 'blob'
         });
-        if (response.data.error) {
-          throw new Error(response.data.error);
-        }
-        setDownloadUrl(response.data.downloadUrl);
+        
+        const fileName = `processed_${Date.now()}.csv`;
+        setDownloadBlob(response.data);
+        setDownloadFileName(fileName);
       } catch (error) {
         setError(error.message || 'An unknown error occurred');
       } finally {
@@ -60,6 +64,19 @@ export default function Home() {
       }
     };
     reader.readAsText(file);
+  };
+
+  const handleDownload = () => {
+    if (downloadBlob && downloadFileName) {
+      const url = window.URL.createObjectURL(downloadBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', downloadFileName);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    }
   };
 
   return (
@@ -206,13 +223,16 @@ export default function Home() {
             </div>
           )}
 
-          {downloadUrl && (
+          {downloadBlob && (
             <div className="mt-4 bg-green-900 border-l-4 border-green-500 p-4 rounded-md">
-              <p className="text-sm">
-                处理完成！
-                <a href={downloadUrl} download className="font-medium underline hover:text-green-400 ml-1">
-                  下载处理后的CSV
-                </a>
+              <p className="text-sm flex items-center justify-between">
+                <span>处理完成！</span>
+                <button
+                  onClick={handleDownload}
+                  className="px-4 py-2 bg-green-600 rounded-md hover:bg-green-700 transition-colors"
+                >
+                  下载 CSV 文件
+                </button>
               </p>
             </div>
           )}

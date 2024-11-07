@@ -19,16 +19,13 @@ export async function POST(req) {
     console.log('All records processed. Generating output file...');
     const output = stringify(processedRecords, { header: true });
     const fileName = `processed_${Date.now()}.csv`;
-    const filePath = path.join('./public', fileName);
     
-    try {
-      await fs.writeFile(filePath, output);
-      console.log('File written successfully:', filePath);
-      return NextResponse.json({ downloadUrl: `/${fileName}` });
-    } catch (writeError) {
-      console.error('Error writing file:', writeError);
-      return NextResponse.json({ error: 'Error writing output file' }, { status: 500 });
-    }
+    return new NextResponse(output, {
+      headers: {
+        'Content-Type': 'text/csv',
+        'Content-Disposition': `attachment; filename="${fileName}"`,
+      },
+    });
   } catch (error) {
     console.error('Error processing CSV:', error);
     return NextResponse.json({ error: 'Error processing CSV' }, { status: 500 });
