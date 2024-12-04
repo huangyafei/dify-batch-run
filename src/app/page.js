@@ -16,7 +16,7 @@ export default function Home() {
   const [downloadBlob, setDownloadBlob] = useState(null);
   const [downloadFileName, setDownloadFileName] = useState(null);
   const [error, setError] = useState(null);
-  const [apiUrl, setApiUrl] = useState('https://api.dify.ai/v1/workflows/run');
+  const [apiUrl, setApiUrl] = useState('https://api.dify.ai/v1');
   const [apiKey, setApiKey] = useState('');
   const [concurrencyLimit, setConcurrencyLimit] = useState(5);
 
@@ -151,8 +151,12 @@ export default function Home() {
                 value={apiUrl}
                 onChange={(e) => setApiUrl(e.target.value)}
                 className="w-full px-3 py-2 bg-[#3a3a3c] rounded-md text-sm"
+                placeholder="例如：https://api.dify.ai/v1"
                 required
               />
+              <p className="mt-1 text-xs text-gray-400">
+                请输入 Dify API 的基础 URL，例如：https://api.dify.ai/v1
+              </p>
             </div>
 
             <div>

@@ -93,7 +93,10 @@ async function processRecord(record, mapping, apiUrl, apiKey) {
 
 async function callAPI(inputs, apiUrl, apiKey) {
   try {
-    const response = await axios.post(apiUrl, {
+    // Append /workflows/run to the base URL
+    const fullApiUrl = `${apiUrl.replace(/\/$/, '')}/workflows/run`;
+    
+    const response = await axios.post(fullApiUrl, {
       inputs: inputs,
       response_mode: "blocking",
       user: "api"
