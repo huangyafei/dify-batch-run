@@ -1,54 +1,144 @@
 'use client'
 
-import { useState } from 'react';
+import { useReducer } from 'react';
 import axios from 'axios';
 
-export default function Home() {
-  const [file, setFile] = useState(null);
-  const [mapping, setMapping] = useState([
+// 初始状态
+const initialState = {
+  file: null,
+  mapping: [
     { csvColumn: '', apiParam: '', type: 'input' },
     { csvColumn: '', apiParam: '', type: 'output' }
-  ]);
-  const [processing, setProcessing] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [totalRecords, setTotalRecords] = useState(0);
-  const [processedRecords, setProcessedRecords] = useState(0);
-  const [downloadBlob, setDownloadBlob] = useState(null);
-  const [downloadFileName, setDownloadFileName] = useState(null);
-  const [error, setError] = useState(null);
-  const [apiUrl, setApiUrl] = useState('https://api.dify.ai/v1');
-  const [apiKey, setApiKey] = useState('');
-  const [concurrencyLimit, setConcurrencyLimit] = useState(5);
+  ],
+  progress: {
+    processing: false,
+    percent: 0,
+    total: 0,
+    processed: 0
+  },
+  download: {
+    blob: null,
+    fileName: null
+  },
+  error: null,
+  config: {
+    apiUrl: 'https://api.dify.ai/v1',
+    apiKey: '',
+    concurrencyLimit: 5
+  }
+};
+
+// Action Types
+const ACTIONS = {
+  SET_FILE: 'SET_FILE',
+  UPDATE_MAPPING: 'UPDATE_MAPPING',
+  ADD_MAPPING: 'ADD_MAPPING',
+  REMOVE_MAPPING: 'REMOVE_MAPPING',
+  SET_PROGRESS: 'SET_PROGRESS',
+  SET_DOWNLOAD: 'SET_DOWNLOAD',
+  SET_ERROR: 'SET_ERROR',
+  UPDATE_CONFIG: 'UPDATE_CONFIG',
+  RESET_PROGRESS: 'RESET_PROGRESS'
+};
+
+// Reducer
+function reducer(state, action) {
+  switch (action.type) {
+    case ACTIONS.SET_FILE:
+      return { ...state, file: action.payload };
+    case ACTIONS.UPDATE_MAPPING:
+      const newMapping = [...state.mapping];
+      newMapping[action.payload.index][action.payload.field] = action.payload.value;
+      return { ...state, mapping: newMapping };
+    case ACTIONS.ADD_MAPPING:
+      return {
+        ...state,
+        mapping: [...state.mapping, { csvColumn: '', apiParam: '', type: action.payload }]
+      };
+    case ACTIONS.REMOVE_MAPPING:
+      return {
+        ...state,
+        mapping: state.mapping.filter((_, i) => i !== action.payload)
+      };
+    case ACTIONS.SET_PROGRESS:
+      return {
+        ...state,
+        progress: {
+          ...state.progress,
+          ...action.payload
+        }
+      };
+    case ACTIONS.SET_DOWNLOAD:
+      return {
+        ...state,
+        download: action.payload
+      };
+    case ACTIONS.SET_ERROR:
+      return { ...state, error: action.payload };
+    case ACTIONS.UPDATE_CONFIG:
+      return {
+        ...state,
+        config: {
+          ...state.config,
+          ...action.payload
+        }
+      };
+    case ACTIONS.RESET_PROGRESS:
+      return {
+        ...state,
+        progress: {
+          processing: false,
+          percent: 0,
+          total: 0,
+          processed: 0
+        },
+        download: {
+          blob: null,
+          fileName: null
+        },
+        error: null
+      };
+    default:
+      return state;
+  }
+}
+
+export default function Home() {
+  const [state, dispatch] = useReducer(reducer, initialState);
+  const { file, mapping, progress, download, error, config } = state;
 
   const handleFileChange = (event) => {
-    setFile(event.target.files[0]);
+    dispatch({ type: ACTIONS.SET_FILE, payload: event.target.files[0] });
   };
 
   const handleMappingChange = (index, field, value) => {
-    const newMapping = [...mapping];
-    newMapping[index][field] = value;
-    setMapping(newMapping);
+    dispatch({
+      type: ACTIONS.UPDATE_MAPPING,
+      payload: { index, field, value }
+    });
   };
 
   const addMapping = (type) => {
-    setMapping([...mapping, { csvColumn: '', apiParam: '', type }]);
+    dispatch({ type: ACTIONS.ADD_MAPPING, payload: type });
   };
 
   const removeMapping = (index) => {
-    const newMapping = mapping.filter((_, i) => i !== index);
-    setMapping(newMapping);
+    const typeToRemove = mapping[index].type;
+    const remainingOfType = mapping.filter((m, i) => i !== index && m.type === typeToRemove).length;
+    
+    if (remainingOfType === 0) {
+      return; // 如果是最后一个该类型的映射，不允许删除
+    }
+    
+    dispatch({ type: ACTIONS.REMOVE_MAPPING, payload: index });
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    if (!file || !apiUrl || !apiKey) return;
+    if (!file || !config.apiUrl || !config.apiKey) return;
 
-    setProcessing(true);
-    setError(null);
-    setDownloadBlob(null);
-    setProgress(0);
-    setProcessedRecords(0);
-    setTotalRecords(0);
+    dispatch({ type: ACTIONS.RESET_PROGRESS });
+    dispatch({ type: ACTIONS.SET_PROGRESS, payload: { processing: true } });
     
     const reader = new FileReader();
     reader.onload = async (e) => {
@@ -61,9 +151,9 @@ export default function Home() {
           body: JSON.stringify({
             fileContent: e.target.result,
             mapping: mapping,
-            apiUrl: apiUrl,
-            apiKey: apiKey,
-            concurrencyLimit: parseInt(concurrencyLimit)
+            apiUrl: config.apiUrl,
+            apiKey: config.apiKey,
+            concurrencyLimit: parseInt(config.concurrencyLimit)
           }),
         });
 
@@ -83,51 +173,53 @@ export default function Home() {
             break;
           }
 
-          // 解码新的数据块并添加到缓冲区
           buffer += decoder.decode(value, { stream: true });
-          
-          // 处理缓冲区中的完整行
           const lines = buffer.split('\n');
-          buffer = lines.pop() || ''; // 保留最后一个不完整的行
+          buffer = lines.pop() || '';
 
           for (const line of lines) {
             if (line.startsWith('progress:')) {
               const [processed, total] = line.replace('progress:', '').split('/');
-              setProcessedRecords(parseInt(processed));
-              setTotalRecords(parseInt(total));
-              setProgress((parseInt(processed) / parseInt(total)) * 100);
+              dispatch({
+                type: ACTIONS.SET_PROGRESS,
+                payload: {
+                  processed: parseInt(processed),
+                  total: parseInt(total),
+                  percent: (parseInt(processed) / parseInt(total)) * 100
+                }
+              });
             } else {
               finalCsvData += line + '\n';
             }
           }
         }
 
-        // 处理剩余的缓冲区
         if (buffer) {
           finalCsvData += buffer;
         }
 
-        // 创建最终的 Blob
         const csvBlob = new Blob([finalCsvData], { type: 'text/csv' });
         const fileName = `processed_${Date.now()}.csv`;
-        setDownloadBlob(csvBlob);
-        setDownloadFileName(fileName);
+        dispatch({
+          type: ACTIONS.SET_DOWNLOAD,
+          payload: { blob: csvBlob, fileName }
+        });
       } catch (error) {
         console.error('Error:', error);
-        setError(error.message || 'An unknown error occurred');
+        dispatch({ type: ACTIONS.SET_ERROR, payload: error.message || 'An unknown error occurred' });
       } finally {
-        setProcessing(false);
+        dispatch({ type: ACTIONS.SET_PROGRESS, payload: { processing: false } });
       }
     };
     reader.readAsText(file);
   };
 
   const handleDownload = () => {
-    if (downloadBlob && downloadFileName) {
-      const url = window.URL.createObjectURL(downloadBlob);
+    if (download.blob && download.fileName) {
+      const url = window.URL.createObjectURL(download.blob);
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', downloadFileName);
+      link.setAttribute('download', download.fileName);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -148,8 +240,11 @@ export default function Home() {
               <input
                 type="text"
                 id="apiUrl"
-                value={apiUrl}
-                onChange={(e) => setApiUrl(e.target.value)}
+                value={config.apiUrl}
+                onChange={(e) => dispatch({
+                  type: ACTIONS.UPDATE_CONFIG,
+                  payload: { apiUrl: e.target.value }
+                })}
                 className="w-full px-3 py-2 bg-[#3a3a3c] rounded-md text-sm"
                 placeholder="例如：https://api.dify.ai/v1"
                 required
@@ -166,8 +261,11 @@ export default function Home() {
               <input
                 type="text"
                 id="apiKey"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
+                value={config.apiKey}
+                onChange={(e) => dispatch({
+                  type: ACTIONS.UPDATE_CONFIG,
+                  payload: { apiKey: e.target.value }
+                })}
                 className="w-full px-3 py-2 bg-[#3a3a3c] rounded-md text-sm"
                 required
               />
@@ -182,8 +280,11 @@ export default function Home() {
                 id="concurrencyLimit"
                 min="1"
                 max="50"
-                value={concurrencyLimit}
-                onChange={(e) => setConcurrencyLimit(e.target.value)}
+                value={config.concurrencyLimit}
+                onChange={(e) => dispatch({
+                  type: ACTIONS.UPDATE_CONFIG,
+                  payload: { concurrencyLimit: e.target.value }
+                })}
                 className="w-full px-3 py-2 bg-[#3a3a3c] rounded-md text-sm"
                 required
               />
@@ -199,173 +300,177 @@ export default function Home() {
               <input
                 type="file"
                 id="csvFile"
-                onChange={handleFileChange}
                 accept=".csv"
+                onChange={handleFileChange}
                 className="w-full px-3 py-2 bg-[#3a3a3c] rounded-md text-sm"
                 required
               />
             </div>
 
-            <div>
-              <h3 className="text-lg font-medium mb-3">参数映射</h3>
-              
-              {/* 输入参数部分 */}
-              <div className="mb-4">
-                <h4 className="text-sm font-medium mb-2 text-gray-400">输入参数</h4>
-                <div className="space-y-3">
-                  {mapping.filter(map => map.type === 'input').map((map, index, inputArray) => (
-                    <div key={`input-${index}`} className="flex items-center space-x-2">
-                      <input
-                        type="text"
-                        placeholder="表格字段"
-                        value={map.csvColumn}
-                        onChange={(e) => {
-                          const realIndex = mapping.findIndex(m => m === map);
-                          handleMappingChange(realIndex, 'csvColumn', e.target.value);
-                        }}
-                        className="flex-1 px-3 py-2 bg-[#3a3a3c] rounded-md text-sm"
-                      />
-                      <input
-                        type="text"
-                        placeholder="API 参数"
-                        value={map.apiParam}
-                        onChange={(e) => {
-                          const realIndex = mapping.findIndex(m => m === map);
-                          handleMappingChange(realIndex, 'apiParam', e.target.value);
-                        }}
-                        className="flex-1 px-3 py-2 bg-[#3a3a3c] rounded-md text-sm"
-                      />
-                      {inputArray.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const realIndex = mapping.findIndex(m => m === map);
-                            removeMapping(realIndex);
-                          }}
-                          className="p-2 bg-red-600 rounded-full"
-                        >
-                          <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                          </svg>
-                        </button>
-                      )}
-                    </div>
-                  ))}
+            <div className="space-y-4">
+              <div>
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-medium">输入字段映射</h3>
+                  <button
+                    type="button"
+                    onClick={() => addMapping('input')}
+                    className="px-3 py-1 bg-blue-600 rounded-md text-sm"
+                  >
+                    添加输入
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => addMapping('input')}
-                  className="mt-3 px-4 py-2 bg-blue-600 rounded-md text-sm font-medium"
-                >
-                  添加输入映射
-                </button>
+
+                {mapping.filter(map => map.type === 'input').map((map, index) => {
+                  const mappingIndex = mapping.findIndex(m => m === map);
+                  const isOnlyOneOfType = mapping.filter(m => m.type === 'input').length === 1;
+                  
+                  return (
+                    <div key={`input-${index}`} className="flex space-x-2 mb-2">
+                      <input
+                        type="text"
+                        value={map.csvColumn}
+                        onChange={(e) => handleMappingChange(
+                          mappingIndex,
+                          'csvColumn',
+                          e.target.value
+                        )}
+                        placeholder="CSV 列名"
+                        className="flex-1 px-3 py-2 bg-[#3a3a3c] rounded-md text-sm"
+                      />
+                      <input
+                        type="text"
+                        value={map.apiParam}
+                        onChange={(e) => handleMappingChange(
+                          mappingIndex,
+                          'apiParam',
+                          e.target.value
+                        )}
+                        placeholder="API 参数名"
+                        className="flex-1 px-3 py-2 bg-[#3a3a3c] rounded-md text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeMapping(mappingIndex)}
+                        disabled={isOnlyOneOfType}
+                        className={`px-3 py-2 rounded-md text-sm ${
+                          isOnlyOneOfType
+                            ? 'bg-gray-600 cursor-not-allowed'
+                            : 'bg-red-600 hover:bg-red-700'
+                        }`}
+                      >
+                        删除
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
 
-              {/* 输出参数部分 */}
               <div>
-                <h4 className="text-sm font-medium mb-2 text-gray-400">输出参数</h4>
-                <div className="space-y-3">
-                  {mapping.filter(map => map.type === 'output').map((map, index, outputArray) => (
-                    <div key={`output-${index}`} className="flex items-center space-x-2">
-                      <input
-                        type="text"
-                        placeholder="表格字段"
-                        value={map.csvColumn}
-                        onChange={(e) => {
-                          const realIndex = mapping.findIndex(m => m === map);
-                          handleMappingChange(realIndex, 'csvColumn', e.target.value);
-                        }}
-                        className="flex-1 px-3 py-2 bg-[#3a3a3c] rounded-md text-sm"
-                      />
-                      <input
-                        type="text"
-                        placeholder="API 参数"
-                        value={map.apiParam}
-                        onChange={(e) => {
-                          const realIndex = mapping.findIndex(m => m === map);
-                          handleMappingChange(realIndex, 'apiParam', e.target.value);
-                        }}
-                        className="flex-1 px-3 py-2 bg-[#3a3a3c] rounded-md text-sm"
-                      />
-                      {outputArray.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const realIndex = mapping.findIndex(m => m === map);
-                            removeMapping(realIndex);
-                          }}
-                          className="p-2 bg-red-600 rounded-full"
-                        >
-                          <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                          </svg>
-                        </button>
-                      )}
-                    </div>
-                  ))}
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-medium">输出字段映射</h3>
+                  <button
+                    type="button"
+                    onClick={() => addMapping('output')}
+                    className="px-3 py-1 bg-green-600 rounded-md text-sm"
+                  >
+                    添加输出
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => addMapping('output')}
-                  className="mt-3 px-4 py-2 bg-blue-600 rounded-md text-sm font-medium"
-                >
-                  添加输出映射
-                </button>
+
+                {mapping.filter(map => map.type === 'output').map((map, index) => {
+                  const mappingIndex = mapping.findIndex(m => m === map);
+                  const isOnlyOneOfType = mapping.filter(m => m.type === 'output').length === 1;
+                  
+                  return (
+                    <div key={`output-${index}`} className="flex space-x-2 mb-2">
+                      <input
+                        type="text"
+                        value={map.csvColumn}
+                        onChange={(e) => handleMappingChange(
+                          mappingIndex,
+                          'csvColumn',
+                          e.target.value
+                        )}
+                        placeholder="CSV 列名"
+                        className="flex-1 px-3 py-2 bg-[#3a3a3c] rounded-md text-sm"
+                      />
+                      <input
+                        type="text"
+                        value={map.apiParam}
+                        onChange={(e) => handleMappingChange(
+                          mappingIndex,
+                          'apiParam',
+                          e.target.value
+                        )}
+                        placeholder="API 参数名"
+                        className="flex-1 px-3 py-2 bg-[#3a3a3c] rounded-md text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeMapping(mappingIndex)}
+                        disabled={isOnlyOneOfType}
+                        className={`px-3 py-2 rounded-md text-sm ${
+                          isOnlyOneOfType
+                            ? 'bg-gray-600 cursor-not-allowed'
+                            : 'bg-red-600 hover:bg-red-700'
+                        }`}
+                      >
+                        删除
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
             <div>
               <button
                 type="submit"
-                disabled={!file || !apiUrl || !apiKey || processing}
-                className="w-full py-2 px-4 bg-blue-600 rounded-md text-sm font-medium disabled:opacity-50"
+                disabled={progress.processing}
+                className={`w-full py-2 rounded-md text-sm font-medium ${
+                  progress.processing
+                    ? 'bg-gray-600 cursor-not-allowed'
+                    : 'bg-blue-600 hover:bg-blue-700'
+                }`}
               >
-                {processing ? '处理中...' : '开始处理'}
+                {progress.processing ? '处理中...' : '开始处理'}
               </button>
             </div>
           </form>
 
-          {error && (
-            <div className="mt-4 bg-red-900 border-l-4 border-red-500 p-4 rounded-md">
-              <p className="text-sm">
-                {error}
-              </p>
-            </div>
-          )}
-
-          {processing && (
-            <div className="mt-4 space-y-2">
-              <div className="w-full bg-[#3a3a3c] rounded-full h-4">
+          {progress.processing && (
+            <div className="mt-4">
+              <div className="flex justify-between text-sm mb-1">
+                <span>处理进度</span>
+                <span>{progress.processed} / {progress.total}</span>
+              </div>
+              <div className="w-full bg-[#3a3a3c] rounded-full h-2">
                 <div
-                  className="bg-blue-600 h-4 rounded-full transition-all duration-300"
-                  style={{ width: `${progress}%` }}
+                  className="bg-blue-600 h-2 rounded-full transition-all"
+                  style={{ width: `${progress.percent}%` }}
                 ></div>
               </div>
-              <div className="text-sm text-center">
-                {processedRecords} / {totalRecords} 条记录已处理 ({Math.round(progress)}%)
-              </div>
             </div>
           )}
 
-          {downloadBlob && (
-            <div className="mt-4 bg-green-900 border-l-4 border-green-500 p-4 rounded-md">
-              <p className="text-sm flex items-center justify-between">
-                <span>处理完成！</span>
-                <button
-                  onClick={handleDownload}
-                  className="px-4 py-2 bg-green-600 rounded-md hover:bg-green-700 transition-colors"
-                >
-                  下载 CSV 文件
-                </button>
-              </p>
+          {error && (
+            <div className="mt-4 p-3 bg-red-900/50 text-red-200 rounded-md">
+              {error}
+            </div>
+          )}
+
+          {download.blob && (
+            <div className="mt-4">
+              <button
+                onClick={handleDownload}
+                className="w-full py-2 bg-green-600 hover:bg-green-700 rounded-md text-sm font-medium"
+              >
+                下载处理结果
+              </button>
             </div>
           )}
         </div>
       </div>
-      
-      <footer className="mt-4 text-center text-sm text-gray-500">
-        <p>♥️ Made by TPLN AI PM Team with love</p>
-      </footer>
     </div>
   );
 }
