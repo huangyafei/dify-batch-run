@@ -37,3 +37,4 @@ next-env.d.ts
 
 # Processed CSV files
 /public/processed_*.csv
+/test_files
