@@ -14,16 +14,53 @@ export async function POST(req) {
 
   try {
     const records = await parseCSV(fileContent);
-    console.log('CSV parsing completed. Processing records...');
-    const processedRecords = await processRecords(records, mapping, apiUrl, apiKey, concurrencyLimit);
-    console.log('All records processed. Generating output file...');
-    const output = stringify(processedRecords, { header: true });
-    const fileName = `processed_${Date.now()}.csv`;
-    
-    return new NextResponse(output, {
+    console.log('CSV parsing completed. Total records:', records.length);
+
+    // 创建用于进度报告的编码器和流
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          const processedRecords = [];
+          const totalRecords = records.length;
+
+          // 发送初始进度
+          controller.enqueue(encoder.encode(`progress:0/${totalRecords}\n`));
+
+          // 分批处理记录
+          for (let i = 0; i < records.length; i += concurrencyLimit) {
+            const batch = records.slice(i, i + concurrencyLimit);
+            const promises = batch.map(record => 
+              processRecord(record, mapping, apiUrl, apiKey)
+                .catch(error => {
+                  console.error('处理记录时出错:', error);
+                  return {...record, error: error.message};
+                })
+            );
+
+            const results = await Promise.all(promises);
+            processedRecords.push(...results);
+            
+            // 发送进度更新
+            controller.enqueue(encoder.encode(`progress:${processedRecords.length}/${totalRecords}\n`));
+            console.log(`已处理 ${processedRecords.length} 条记录，共 ${totalRecords} 条`);
+          }
+
+          // 发送最终的 CSV 数据
+          const output = stringify(processedRecords, { header: true });
+          controller.enqueue(encoder.encode(output));
+          controller.close();
+        } catch (error) {
+          controller.error(error);
+        }
+      }
+    });
+
+    return new Response(stream, {
       headers: {
         'Content-Type': 'text/csv',
-        'Content-Disposition': `attachment; filename="${fileName}"`,
+        'Content-Disposition': `attachment; filename="processed_${Date.now()}.csv"`,
+        'Transfer-Encoding': 'chunked'
       },
     });
   } catch (error) {
@@ -32,42 +69,7 @@ export async function POST(req) {
   }
 }
 
-function parseCSV(fileContent) {
-  return new Promise((resolve, reject) => {
-    parse(fileContent, {
-      columns: true,
-      skip_empty_lines: true
-    }, (err, records) => {
-      if (err) reject(err);
-      else resolve(records);
-    });
-  });
-}
-
-async function processRecords(records, mapping, apiUrl, apiKey, concurrencyLimit = 5) {
-  const processedRecords = [];
-
-  for (let i = 0; i < records.length; i += concurrencyLimit) {
-    const batch = records.slice(i, i + concurrencyLimit);
-    const promises = batch.map(record => 
-      processRecord(record, mapping, apiUrl, apiKey)
-        .catch(error => {
-          console.error('处理记录时出错:', error);
-          return {...record, error: error.message};
-        })
-    );
-
-    const results = await Promise.all(promises);
-    processedRecords.push(...results);
-    
-    console.log(`已处理 ${processedRecords.length} 条记录，共 ${records.length} 条`);
-  }
-
-  return processedRecords;
-}
-
 async function processRecord(record, mapping, apiUrl, apiKey) {
-  console.log('Processing record:', record);
   const apiInputs = {};
   const outputMapping = {};
 
@@ -80,7 +82,6 @@ async function processRecord(record, mapping, apiUrl, apiKey) {
   });
 
   const apiResponse = await callAPI(apiInputs, apiUrl, apiKey);
-  console.log('API response:', apiResponse);
 
   const processedRecord = {...record};
   Object.entries(outputMapping).forEach(([apiParam, csvColumn]) => {
@@ -112,4 +113,16 @@ async function callAPI(inputs, apiUrl, apiKey) {
     console.error('API call error:', error.message);
     throw error;
   }
+}
+
+function parseCSV(fileContent) {
+  return new Promise((resolve, reject) => {
+    parse(fileContent, {
+      columns: true,
+      skip_empty_lines: true
+    }, (err, records) => {
+      if (err) reject(err);
+      else resolve(records);
+    });
+  });
 }
