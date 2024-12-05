@@ -1,7 +1,48 @@
+# dependencies
 node_modules
+.pnp
+.pnp.js
+.yarn
+
+# testing
+coverage
+
+# next.js
 .next
-.git
-.env*
+out
+
+# production
+build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# local env files
+.env*
+.env*.local
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# development
+.git
+.gitignore
+.dockerignore
+Dockerfile
+docker-compose*.yml
 README.md
-.vscode 
+.vscode
+
+# project specific
+public/processed_*.csv
+test_files
