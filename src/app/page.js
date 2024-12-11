@@ -255,10 +255,15 @@ export default function Home() {
         // 清除现有的输入映射
         const newMapping = [...state.mapping.filter(m => m.type === 'output')];
         
-        // 添加新的输入映射
+        // 添加新的输入映射，包含标签信息
         data.user_input_form.forEach(input => {
           const [key, value] = Object.entries(input)[0];
-          newMapping.push({ csvColumn: '', apiParam: value.variable, type: 'input' });
+          newMapping.push({ 
+            csvColumn: '', 
+            apiParam: value.variable,
+            label: value.label || value.variable, // 添加标签信息
+            type: 'input' 
+          });
         });
 
         dispatch({ 
@@ -393,17 +398,24 @@ export default function Home() {
                         placeholder="CSV 列名"
                         className="flex-1 px-3 py-2 bg-[#3a3a3c] rounded-md text-sm"
                       />
-                      <input
-                        type="text"
-                        value={map.apiParam}
-                        onChange={(e) => handleMappingChange(
-                          mappingIndex,
-                          'apiParam',
-                          e.target.value
+                      <div className="flex-1 relative">
+                        <input
+                          type="text"
+                          value={map.apiParam}
+                          onChange={(e) => handleMappingChange(
+                            mappingIndex,
+                            'apiParam',
+                            e.target.value
+                          )}
+                          placeholder="API 参数名"
+                          className="w-full px-3 py-2 bg-[#3a3a3c] rounded-md text-sm"
+                        />
+                        {map.label && map.label !== map.apiParam && (
+                          <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-sm text-gray-500 pointer-events-none">
+                            {map.label}
+                          </div>
                         )}
-                        placeholder="API 参数名"
-                        className="flex-1 px-3 py-2 bg-[#3a3a3c] rounded-md text-sm"
-                      />
+                      </div>
                       <button
                         type="button"
                         onClick={() => removeMapping(mappingIndex)}
