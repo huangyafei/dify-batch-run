@@ -273,47 +273,49 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-[#1c1c1e] text-white pt-12 pb-10 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-[#1c1c1e] text-white pt-16 pb-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto">
         <h1 className="text-4xl font-bold text-center mb-12">Dify 批量运行工具</h1>
         <div className="bg-[#2c2c2e] rounded-lg shadow-lg p-6 mb-8">
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label htmlFor="apiUrl" className="block text-sm font-medium mb-2">
-                API URL
-              </label>
-              <input
-                type="text"
-                id="apiUrl"
-                value={config.apiUrl}
-                onChange={(e) => dispatch({
-                  type: ACTIONS.UPDATE_CONFIG,
-                  payload: { apiUrl: e.target.value }
-                })}
-                className="w-full px-3 py-2 bg-[#3a3a3c] rounded-md text-sm"
-                placeholder="例如：https://api.dify.ai/v1"
-                required
-              />
-              <p className="mt-1 text-xs text-gray-400">
-                请输入 Dify API 的基础 URL，例如：https://api.dify.ai/v1
-              </p>
-            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="apiUrl" className="block text-sm font-medium mb-2">
+                  API URL
+                </label>
+                <input
+                  type="text"
+                  id="apiUrl"
+                  value={config.apiUrl}
+                  onChange={(e) => dispatch({
+                    type: ACTIONS.UPDATE_CONFIG,
+                    payload: { apiUrl: e.target.value }
+                  })}
+                  className="w-full px-3 py-2 bg-[#3a3a3c] rounded-md text-sm"
+                  placeholder="例如：https://api.dify.ai/v1"
+                  required
+                />
+                <p className="mt-1 text-xs text-gray-400">
+                  请输入 Dify API 的基础 URL
+                </p>
+              </div>
 
-            <div>
-              <label htmlFor="apiKey" className="block text-sm font-medium mb-2">
-                API Key
-              </label>
-              <input
-                type="text"
-                id="apiKey"
-                value={config.apiKey}
-                onChange={(e) => dispatch({
-                  type: ACTIONS.UPDATE_CONFIG,
-                  payload: { apiKey: e.target.value }
-                })}
-                className="w-full px-3 py-2 bg-[#3a3a3c] rounded-md text-sm"
-                required
-              />
+              <div>
+                <label htmlFor="apiKey" className="block text-sm font-medium mb-2">
+                  API Key
+                </label>
+                <input
+                  type="text"
+                  id="apiKey"
+                  value={config.apiKey}
+                  onChange={(e) => dispatch({
+                    type: ACTIONS.UPDATE_CONFIG,
+                    payload: { apiKey: e.target.value }
+                  })}
+                  className="w-full px-3 py-2 bg-[#3a3a3c] rounded-md text-sm"
+                  required
+                />
+              </div>
             </div>
 
             <div>
@@ -362,7 +364,7 @@ export default function Home() {
                       onClick={handleAutoFill}
                       className="px-3 py-1 bg-yellow-600 rounded-md text-sm"
                     >
-                      一键填入
+                      导入基础信息
                     </button>
                     <button
                       type="button"
