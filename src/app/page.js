@@ -25,7 +25,8 @@ const initialState = {
     apiUrl: 'https://api.dify.ai/v1',
     apiKey: '',
     concurrencyLimit: 5
-  }
+  },
+  isDragging: false,
 };
 
 // Action Types
@@ -39,7 +40,8 @@ const ACTIONS = {
   SET_ERROR: 'SET_ERROR',
   UPDATE_CONFIG: 'UPDATE_CONFIG',
   RESET_PROGRESS: 'RESET_PROGRESS',
-  SET_MAPPING: 'SET_MAPPING'
+  SET_MAPPING: 'SET_MAPPING',
+  SET_DRAGGING: 'SET_DRAGGING',
 };
 
 // Reducer
@@ -104,6 +106,8 @@ function reducer(state, action) {
         ...state,
         mapping: action.payload
       };
+    case ACTIONS.SET_DRAGGING:
+      return { ...state, isDragging: action.payload };
     default:
       return state;
   }
@@ -111,7 +115,7 @@ function reducer(state, action) {
 
 export default function Home() {
   const [state, dispatch] = useReducer(reducer, initialState);
-  const { file, mapping, progress, download, error, config } = state;
+  const { file, mapping, progress, download, error, config, isDragging } = state;
 
   const handleFileChange = (event) => {
     dispatch({ type: ACTIONS.SET_FILE, payload: event.target.files[0] });
@@ -277,6 +281,26 @@ export default function Home() {
     }
   };
 
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    dispatch({ type: ACTIONS.SET_DRAGGING, payload: true });
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    dispatch({ type: ACTIONS.SET_DRAGGING, payload: false });
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    dispatch({ type: ACTIONS.SET_DRAGGING, payload: false });
+    
+    const files = e.dataTransfer.files;
+    if (files.length > 0 && files[0].type === 'text/csv') {
+      dispatch({ type: ACTIONS.SET_FILE, payload: files[0] });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#1c1c1e] text-white pt-16 pb-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto">
@@ -346,17 +370,55 @@ export default function Home() {
             </div>
 
             <div>
-              <label htmlFor="csvFile" className="block text-sm font-medium mb-2">
+              <label className="block text-sm font-medium mb-2">
                 上传 CSV 文件
               </label>
-              <input
-                type="file"
-                id="csvFile"
-                accept=".csv"
-                onChange={handleFileChange}
-                className="w-full px-3 py-2 bg-[#3a3a3c] rounded-md text-sm"
-                required
-              />
+              <div
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={`
+                  relative border-2 border-dashed rounded-lg p-4
+                  transition-all duration-200 ease-in-out
+                  ${isDragging 
+                    ? 'border-blue-500 bg-blue-500/10' 
+                    : 'border-gray-600 hover:border-gray-500'
+                  }
+                `}
+              >
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={handleFileChange}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                />
+                <div className="text-center">
+                  {file ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-center">
+                        <svg className="w-8 h-8 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <p className="text-sm text-gray-300">{file.name}</p>
+                      <p className="text-xs text-gray-500">点击或拖拽新文件以替换</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-center">
+                        <svg className="w-12 h-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                            d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        </svg>
+                      </div>
+                      <p className="text-sm text-gray-300">
+                        {isDragging ? '释放文件以上传' : '点击或拖拽 CSV 文件到这里'}
+                      </p>
+                      <p className="text-xs text-gray-500">仅支持 CSV 文件</p>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
             <div className="space-y-4">
