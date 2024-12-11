@@ -38,7 +38,8 @@ const ACTIONS = {
   SET_DOWNLOAD: 'SET_DOWNLOAD',
   SET_ERROR: 'SET_ERROR',
   UPDATE_CONFIG: 'UPDATE_CONFIG',
-  RESET_PROGRESS: 'RESET_PROGRESS'
+  RESET_PROGRESS: 'RESET_PROGRESS',
+  SET_MAPPING: 'SET_MAPPING'
 };
 
 // Reducer
@@ -97,6 +98,11 @@ function reducer(state, action) {
           fileName: null
         },
         error: null
+      };
+    case ACTIONS.SET_MAPPING:
+      return {
+        ...state,
+        mapping: action.payload
       };
     default:
       return state;
@@ -227,6 +233,45 @@ export default function Home() {
     }
   };
 
+  const handleAutoFill = async () => {
+    try {
+      const response = await fetch('/api/get-parameters', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          apiUrl: config.apiUrl,
+          apiKey: config.apiKey
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch parameters');
+      }
+
+      const data = await response.json();
+      if (data.user_input_form) {
+        // 清除现有的输入映射
+        const newMapping = [...state.mapping.filter(m => m.type === 'output')];
+        
+        // 添加新的输入映射
+        data.user_input_form.forEach(input => {
+          const [key, value] = Object.entries(input)[0];
+          newMapping.push({ csvColumn: '', apiParam: value.variable, type: 'input' });
+        });
+
+        dispatch({ 
+          type: ACTIONS.SET_MAPPING, 
+          payload: newMapping 
+        });
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      dispatch({ type: ACTIONS.SET_ERROR, payload: error.message });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#1c1c1e] text-white pt-12 pb-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto">
@@ -311,13 +356,22 @@ export default function Home() {
               <div>
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-lg font-medium">输入字段映射</h3>
+                  <div>
                   <button
-                    type="button"
-                    onClick={() => addMapping('input')}
-                    className="px-3 py-1 bg-blue-600 rounded-md text-sm"
-                  >
-                    添加输入
-                  </button>
+                      type="button"
+                      onClick={handleAutoFill}
+                      className="px-3 py-1 bg-yellow-600 rounded-md text-sm"
+                    >
+                      一键填入
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => addMapping('input')}
+                      className="ml-2 px-3 py-1 bg-blue-600 rounded-md text-sm"
+                    >
+                      添加输入
+                    </button>
+                  </div>
                 </div>
 
                 {mapping.filter(map => map.type === 'input').map((map, index) => {
