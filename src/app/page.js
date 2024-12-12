@@ -265,7 +265,7 @@ export default function Home() {
           newMapping.push({ 
             csvColumn: '', 
             apiParam: value.variable,
-            label: value.label || value.variable, // 添加标签信息
+            label: (value.required ? '* ' : '') + (value.label || value.variable),
             type: 'input' 
           });
         });
